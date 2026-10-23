@@ -11,18 +11,68 @@ Each cell is stored as one row `(file, line, column, value)`, so you can search 
 
 ## Install
 
-### Windows (PowerShell)
+Pick one of the setups below. Each one creates an isolated Python environment for csvsearch and installs its packages there. Activate that environment in every new terminal before running the commands in later sections.
+
+### Windows: PowerShell
 
 ```powershell
 git clone https://github.com/schlafly1/csvsearch.git
 cd csvsearch
 python -m venv .venv
-.venv\Scripts\Activate.ps1      # cmd.exe: .venv\Scripts\activate.bat
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+copy config.example.toml config.toml
 ```
 
-If PowerShell refuses to run the activate script, run
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or use `.venv\Scripts\python.exe` directly in place of `python`.
+If PowerShell refuses to run `Activate.ps1` ("running scripts is disabled on this system"), allow local scripts once with:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Or skip activation and call the venv's Python directly, e.g. `.venv\Scripts\python.exe -m csvsearch import`.
+
+To set the config environment variable for the current PowerShell session:
+
+```powershell
+$env:CSVSEARCH_CONFIG = "D:\projects\clients.toml"
+```
+
+### Windows: Command Prompt (cmd.exe) or batch files
+
+This is the same as PowerShell except for the activate script and the way environment variables are set. cmd has no execution-policy step.
+
+```bat
+git clone https://github.com/schlafly1/csvsearch.git
+cd csvsearch
+python -m venv .venv
+.venv\Scripts\activate.bat
+pip install -r requirements.txt
+copy config.example.toml config.toml
+```
+
+To set the config environment variable for the current cmd session (no quotes, no spaces around `=`):
+
+```bat
+set CSVSEARCH_CONFIG=D:\projects\clients.toml
+```
+
+In a `.bat` file, use `call .venv\Scripts\activate.bat` so that the rest of the script keeps running after activation. For example, `run-csvsearch.bat`:
+
+```bat
+@echo off
+cd /d C:\path\to\csvsearch
+call .venv\Scripts\activate.bat
+python -m csvsearch import
+python -m csvsearch serve
+```
+
+| | PowerShell | cmd / batch |
+|---|---|---|
+| activate | `.venv\Scripts\Activate.ps1` | `.venv\Scripts\activate.bat` (`call ...` inside a .bat) |
+| execution policy | may need `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` | not applicable |
+| set env var | `$env:CSVSEARCH_CONFIG = "D:\x.toml"` | `set CSVSEARCH_CONFIG=D:\x.toml` |
+| deactivate | `deactivate` | `deactivate` |
 
 ### Linux / macOS
 
@@ -32,9 +82,29 @@ cd csvsearch
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp config.example.toml config.toml
+export CSVSEARCH_CONFIG=~/work/csvsearch.toml   # optional
 ```
 
-Activate the venv in each new terminal before running the commands below.
+### Conda (Anaconda / Miniconda, any OS)
+
+```
+conda create -n csvsearch python=3.12
+conda activate csvsearch
+cd csvsearch
+pip install -r requirements.txt
+```
+
+Use `pip` inside the activated conda environment. `conda install --file requirements.txt` may fail, because `odfpy` (needed for `.ods` files) isn't on conda's default channels, and the `tomli` line uses pip-only syntax. To deactivate the environment, or to remove it completely:
+
+```
+conda deactivate
+conda env remove -n csvsearch
+```
+
+### Reinstalling or cleaning up
+
+The `.venv` folder only holds installed packages. It is safe to delete it (`rmdir /s /q .venv` in cmd, `Remove-Item -Recurse -Force .venv` in PowerShell, `rm -rf .venv` on Linux/macOS) and then repeat the install steps. Your `config.toml` and database files are not inside `.venv` and are not affected.
 
 ## Configure
 
@@ -79,6 +149,9 @@ By default csvsearch reads `config.toml` in the current directory. To use a diff
 2. Environment variable `CSVSEARCH_CONFIG`, used when `-c` is not given:
    ```powershell
    $env:CSVSEARCH_CONFIG = "D:\projects\clients.toml"     # PowerShell
+   ```
+   ```bat
+   set CSVSEARCH_CONFIG=D:\projects\clients.toml
    ```
    ```bash
    export CSVSEARCH_CONFIG=~/work/csvsearch.toml           # bash
