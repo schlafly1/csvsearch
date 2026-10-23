@@ -1,0 +1,7 @@
+# Copy to config.toml and edit. Relative paths are relative to this file.
+db = "csvsearch.db"
+
+csv_files = [
+  "examples/people.csv",
+  "examples/products.csv",
+]

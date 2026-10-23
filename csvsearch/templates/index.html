@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block body %}
+<form method="get" action="/">
+  <input name="q" value="{{ p.value }}" placeholder="value contains..." size="30" autofocus>
+  <input name="col" value="{{ p.column }}" placeholder="column name (optional)" size="20">
+  <select name="file">
+    <option value="">All tables</option>
+    {% for f in files %}<option value="{{ f }}" {% if f == p.file %}selected{% endif %}>{{ f }}</option>{% endfor %}
+  </select>
+  <label><input type="checkbox" name="cs" value="1" {% if p.case_sensitive %}checked{% endif %}> case-sensitive</label>
+  <button type="submit">Search</button>
+</form>
+<p>
+  <a href="/export/db"><button type="button">Export database (.db)</button></a>
+  {% if searched %}<a href="/export/results.csv?{{ request.query_string.decode() }}"><button type="button">Export results (CSV)</button></a>{% endif %}
+</p>
+{% if searched %}
+<p>{{ total }} matching line(s){% if pages > 1 %} &mdash; page {{ page }} of {{ pages }}{% endif %}</p>
+<table>
+<tr><th>file</th><th>line</th><th>values</th></tr>
+{% for r in rows %}
+{% set url = url_for('line', file=r.file, line=r.line) %}
+<tr class="hit" onclick="location.href=this.dataset.href" data-href="{{ url }}">
+  <td><a href="{{ url }}">{{ r.file }}</a></td><td>{{ r.line }}</td>
+  <td>{% for c, v in r.cells[:preview] %}{{ c }}={{ v|truncate(30, True, '…', 0) }}{% if not loop.last %}, {% endif %}{% endfor %}{% if r.cells|length > preview %} <span class="muted">…</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+{% set qs = request.args.to_dict() %}
+<p>
+{% if page > 1 %}{% set _ = qs.update({'page': page - 1}) %}<a href="{{ url_for('index', **qs) }}">&laquo; prev</a>{% endif %}
+{% if page < pages %}{% set _ = qs.update({'page': page + 1}) %}<a href="{{ url_for('index', **qs) }}">next &raquo;</a>{% endif %}
+</p>
+{% endif %}
+{% endblock %}

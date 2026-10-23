@@ -1,0 +1,5 @@
+id,first_name,last_name,email,city
+1,Alice,Smith,alice@example.com,Boston
+2,Bob,Jones,bob@example.com,Denver
+3,Carol,Smith,carol@example.com,Austin
+4,Dan,O'Brien,dan@example.com,boston
