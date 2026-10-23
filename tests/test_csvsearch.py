@@ -115,3 +115,35 @@ def test_web_sheet_dropdown(tmp_path):
     c = create_app(dbp).test_client()
     r = c.get("/?q=boston&file=sales.xlsx:Stores")
     assert b"sales.xlsx:Stores" in r.data and b"1 matching line" in r.data
+
+
+# ---- config option ----
+from csvsearch.__main__ import build_parser, resolve_config_path, main
+
+
+@pytest.mark.parametrize("argv", [
+    ["-c", "x.toml", "import"], ["import", "-c", "x.toml"],
+    ["--config", "x.toml", "serve"], ["serve", "--port", "1", "--config=x.toml"],
+])
+def test_config_option_positions(argv):
+    assert resolve_config_path(build_parser().parse_args(argv), {}) == "x.toml"
+
+
+def test_config_env_and_default():
+    a = build_parser().parse_args(["import"])
+    assert resolve_config_path(a, {"CSVSEARCH_CONFIG": "env.toml"}) == "env.toml"
+    assert resolve_config_path(a, {}) == "config.toml"
+    a = build_parser().parse_args(["import", "-c", "cli.toml"])
+    assert resolve_config_path(a, {"CSVSEARCH_CONFIG": "env.toml"}) == "cli.toml"
+
+
+def test_import_with_config_elsewhere(tmp_path, monkeypatch):
+    d = tmp_path / "elsewhere"
+    (d / "data").mkdir(parents=True)
+    (d / "data" / "t.csv").write_text("a,b\n1,2\n")
+    cfg = d / "my.toml"
+    cfg.write_text('db = "out.db"\ncsv_files = ["data/t.csv"]\n')
+    monkeypatch.chdir(tmp_path)  # relative paths must resolve from the config's folder
+    main(["import", "-c", str(cfg)])
+    conn = dbm.connect(str(d / "out.db"))
+    assert dbm.get_line(conn, "t.csv", 2) == [("a", "1"), ("b", "2")]

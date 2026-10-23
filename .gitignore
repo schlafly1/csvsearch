@@ -1,6 +1,10 @@
+# your real config and databases stay local
 config.toml
 *.db
+*.sqlite
+*.sqlite3
 .venv/
+venv/
 __pycache__/
 *.pyc
 .pytest_cache/
