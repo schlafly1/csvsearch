@@ -65,40 +65,56 @@ def unique_names(header):
 
 
 def import_file(conn, path):
-    """Import one CSV, replacing any earlier rows for the same base name.
+    """Import one CSV or spreadsheet, replacing earlier rows for the same table(s).
+    CSV table name = base file name; each spreadsheet sheet = "book.xlsx:Sheet".
     Returns number of data rows."""
-    name = os.path.basename(path)
-    text, enc = read_text(path)
-    records = parse_csv(text)
+    from .sheets import is_spreadsheet, read_sheets
+    base = os.path.basename(path)
+    if is_spreadsheet(path):
+        ext = os.path.splitext(path)[1].lower().lstrip(".")
+        tables = [(f"{base}:{sheet}", rows, ext) for sheet, rows in read_sheets(path)]
+        prefix = base + ":"
+    else:
+        text, enc = read_text(path)
+        tables = [(base, parse_csv(text), enc)]
+        prefix = None
+    total = 0
+    with conn:
+        if prefix:  # drop sheets from a previous import of this workbook
+            n = len(prefix)
+            conn.execute("DELETE FROM cells WHERE substr(file, 1, ?) = ?", (n, prefix))
+            conn.execute("DELETE FROM files WHERE substr(file, 1, ?) = ?", (n, prefix))
+        for name, records, enc in tables:
+            total += _load_table(conn, name, path, records, enc)
+    return total
+
+
+def _load_table(conn, name, path, records, enc):
+    records = iter(records)
     try:
         _, header = next(records)
     except StopIteration:
         header = []
     cols = unique_names(header)
     nrows = 0
-    with conn:
-        conn.execute("DELETE FROM cells WHERE file = ?", (name,))
-        conn.execute("DELETE FROM files WHERE file = ?", (name,))
-        batch = []
-        for line, row in records:
-            if not any(c.strip() for c in row):
-                continue
-            nrows += 1
-            for i, val in enumerate(row):
-                if i < len(cols):
-                    col = cols[i]
-                else:  # ragged: extra cells
-                    col = f"extra{i - len(cols) + 1}"
-                batch.append((name, line, col, val))
-            # short rows: missing cells simply absent
-        conn.executemany(
-            'INSERT OR REPLACE INTO cells(file, line, "column", value) VALUES (?,?,?,?)',
-            batch,
-        )
-        conn.execute(
-            "INSERT INTO files(file, path, columns, rows, encoding) VALUES (?,?,?,?,?)",
-            (name, os.path.abspath(path), ",".join(cols), nrows, enc),
-        )
+    conn.execute("DELETE FROM cells WHERE file = ?", (name,))
+    conn.execute("DELETE FROM files WHERE file = ?", (name,))
+    batch = []
+    for line, row in records:
+        if not any(c.strip() for c in row):
+            continue
+        nrows += 1
+        for i, val in enumerate(row):
+            col = cols[i] if i < len(cols) else f"extra{i - len(cols) + 1}"
+            batch.append((name, line, col, val))
+    conn.executemany(
+        'INSERT OR REPLACE INTO cells(file, line, "column", value) VALUES (?,?,?,?)',
+        batch,
+    )
+    conn.execute(
+        "INSERT INTO files(file, path, columns, rows, encoding) VALUES (?,?,?,?,?)",
+        (name, os.path.abspath(path), ",".join(cols), nrows, enc),
+    )
     return nrows
 
 

@@ -56,3 +56,62 @@ def test_web(setup):
     assert r.mimetype == "text/csv" and b"Boston" in r.data
     r = c.get("/export/db")
     assert r.status_code == 200 and r.data[:15] == b"SQLite format 3"
+
+
+# ---- spreadsheets ----
+import datetime as dt
+
+from csvsearch.sheets import fmt
+
+EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
+
+
+def test_fmt():
+    assert fmt(3.0) == "3" and fmt(2.5) == "2.5" and fmt(None) == "" and fmt(float("nan")) == ""
+    assert fmt(dt.datetime(2026, 1, 2)) == "2026-01-02"
+    assert fmt(dt.datetime(2026, 1, 2, 13, 5)) == "2026-01-02 13:05:00"
+    assert fmt(True) == "TRUE"
+
+
+@pytest.mark.parametrize("name,table,line,expected", [
+    ("sales.xlsx", "sales.xlsx:Orders", 5,
+     [("order_id", "1003"), ("customer", "Carol Smith"), ("sku", "C400"),
+      ("qty", "12"), ("unit_price", "7.25"), ("order_date", "2026-03-30")]),
+    ("inventory.xls", "inventory.xls:Inventory", 2,
+     [("sku", "A100"), ("warehouse", "Boston"), ("on_hand", "250"), ("counted", "2026-04-01")]),
+    ("cities.ods", "cities.ods:Cities", 3,
+     [("city", "Denver"), ("state", "Colo."), ("population", "715522"), ("area_sq_mi", "153.3")]),
+])
+def test_spreadsheet_import(tmp_path, name, table, line, expected):
+    conn = dbm.connect(str(tmp_path / "s.db"))
+    dbm.import_file(conn, os.path.join(EXAMPLES, name))
+    assert dbm.get_line(conn, table, line) == expected
+
+
+def test_xlsx_sheets_blank_rows_and_reimport(tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+    p = tmp_path / "book.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "One"
+    ws.append(["a", "b"]); ws.append([1.0, "x"]); ws.append([None, None]); ws.append([2.5, "y"])
+    wb.create_sheet("Two").append(["c"])
+    wb.save(p)
+    conn = dbm.connect(str(tmp_path / "s.db"))
+    assert dbm.import_file(conn, str(p)) == 2
+    assert dbm.list_files(conn) == ["book.xlsx:One", "book.xlsx:Two"]
+    assert dbm.get_line(conn, "book.xlsx:One", 4) == [("a", "2.5"), ("b", "y")]
+    assert dbm.get_line(conn, "book.xlsx:One", 2) == [("a", "1"), ("b", "x")]
+    del wb["Two"]
+    wb.save(p)
+    dbm.import_file(conn, str(p))
+    assert dbm.list_files(conn) == ["book.xlsx:One"]
+
+
+def test_web_sheet_dropdown(tmp_path):
+    dbp = str(tmp_path / "s.db")
+    conn = dbm.connect(dbp)
+    dbm.import_file(conn, os.path.join(EXAMPLES, "sales.xlsx"))
+    c = create_app(dbp).test_client()
+    r = c.get("/?q=boston&file=sales.xlsx:Stores")
+    assert b"sales.xlsx:Stores" in r.data and b"1 matching line" in r.data

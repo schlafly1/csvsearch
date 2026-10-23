@@ -1,3 +1,7 @@
 Flask>=3.0
 tomli>=2.0; python_version < "3.11"
+openpyxl>=3.1     # .xlsx
+xlrd>=2.0         # .xls
+odfpy>=1.4        # .ods (via pandas)
+pandas>=2.0       # .ods
 pytest>=7.0

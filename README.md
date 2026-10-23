@@ -1,6 +1,6 @@
 # csvsearch
 
-Import CSV files into a SQLite database (one row per cell) and search them from a small local web page.
+Import CSV files and spreadsheets (.xlsx, .xls, .ods) into a SQLite database (one row per cell) and search them from a small local web page.
 
 ## Database layout
 
@@ -9,6 +9,12 @@ Import CSV files into a SQLite database (one row per cell) and search them from 
 - Index on `cells(column)`.
 
 Re-importing a file replaces all its rows. Files are decoded as UTF-8 (BOM ok), falling back to Latin-1. Ragged rows are handled: missing cells are omitted, extra cells are stored as `extra1`, `extra2`, ...  Blank lines are skipped.
+
+## Spreadsheets
+
+`.xlsx`/`.xlsm` (openpyxl), `.xls` (xlrd) and `.ods` (pandas + odfpy) may be listed in `csv_files` too. Each sheet becomes its own table named `<file>:<sheet>` (e.g. `sales.xlsx:Orders`), even if the workbook has only one sheet. The first row holds column names and `line` is the spreadsheet row number (header = row 1). Fully blank rows are skipped. Values are stored as text: whole-number floats lose the `.0` (`3.0` -> `3`), dates become ISO (`2026-01-15`, or `2026-01-15 13:45:00` with a time), booleans become `TRUE`/`FALSE`, and formulas are stored as their last saved value. Re-importing a workbook replaces all its sheets (sheets that were deleted are removed).
+
+`examples/make_spreadsheets.py` regenerates the sample spreadsheets (writing `.xls` needs `pip install xlwt`, not needed for reading).
 
 ## Install
 

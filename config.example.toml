@@ -1,7 +1,12 @@
 # Copy to config.toml and edit. Relative paths are relative to this file.
 db = "csvsearch.db"
 
+# CSV files and spreadsheets (.xlsx, .xls, .ods). Each spreadsheet sheet
+# becomes its own table, named like "sales.xlsx:Orders".
 csv_files = [
   "examples/people.csv",
   "examples/products.csv",
+  "examples/sales.xlsx",
+  "examples/inventory.xls",
+  "examples/cities.ods",
 ]
