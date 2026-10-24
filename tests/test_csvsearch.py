@@ -147,3 +147,57 @@ def test_import_with_config_elsewhere(tmp_path, monkeypatch):
     main(["import", "-c", str(cfg)])
     conn = dbm.connect(str(d / "out.db"))
     assert dbm.get_line(conn, "t.csv", 2) == [("a", "1"), ("b", "2")]
+
+
+# ---- config syntax & structure errors ----
+import subprocess
+import sys
+from csvsearch.config import ConfigSyntaxError, load_config
+
+
+def test_config_syntax_error_line_15(tmp_path):
+    cfg = tmp_path / "config.toml"
+    lines = ["# comment"] * 14 + ['bad = [unquoted']
+    cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(ConfigSyntaxError) as excinfo:
+        load_config(str(cfg))
+    msg = str(excinfo.value)
+    assert excinfo.value.lineno == 15
+    assert f"Error: file {cfg} has syntax error on line 15:" in msg
+    assert "  bad = [unquoted" in msg
+    assert "^" in msg
+
+
+def test_config_windows_backslash_hint(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('db = "csvsearch.db"\ncsv_files = [\n  "C:\\foo\\bar.csv",\n]\n', encoding="utf-8")
+    with pytest.raises(ConfigSyntaxError) as excinfo:
+        load_config(str(cfg))
+    msg = str(excinfo.value)
+    assert f"Error: file {cfg} has syntax error on line 3:" in msg
+    assert '"C:\\foo\\bar.csv"' in msg
+    assert "Hint:" in msg
+    assert "'C:\\foo\\bar.csv'" in msg
+
+
+def test_cli_syntax_and_schema_errors_no_traceback(tmp_path):
+    bad_syntax = tmp_path / "bad_syntax.toml"
+    bad_syntax.write_text("\n" * 14 + 'csv_files = ["C:\\sd\\data.csv"]\n', encoding="utf-8")
+    res = subprocess.run(
+        [sys.executable, "-m", "csvsearch", "-c", str(bad_syntax), "import"],
+        capture_output=True, text=True,
+    )
+    assert res.returncode == 1
+    assert f"Error: file {bad_syntax} has syntax error on line 15:" in res.stderr
+    assert "Hint:" in res.stderr
+    assert "Traceback" not in res.stderr
+
+    bad_schema = tmp_path / "bad_schema.toml"
+    bad_schema.write_text('db = "x.db"\ncsv_files = "not-a-list.csv"\n', encoding="utf-8")
+    res2 = subprocess.run(
+        [sys.executable, "-m", "csvsearch", "-c", str(bad_schema), "import"],
+        capture_output=True, text=True,
+    )
+    assert res2.returncode == 1
+    assert f"Error: in {bad_schema}:" in res2.stderr
+    assert "Traceback" not in res2.stderr

@@ -3,7 +3,7 @@ import os
 import sys
 
 from . import db as dbm
-from .config import load_config
+from .config import ConfigSyntaxError, load_config
 
 DEFAULT_CONFIG = "config.toml"
 ENV_VAR = "CSVSEARCH_CONFIG"
@@ -31,9 +31,17 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     path = resolve_config_path(args)
     if not os.path.isfile(path):
-        sys.exit(f"config file not found: {path} (use -c PATH, set {ENV_VAR}, "
-                 f"or copy config.example.toml to config.toml)")
-    cfg = load_config(path)
+        print(f"Error: config file not found: {path} (use -c PATH, set {ENV_VAR}, "
+              f"or copy config.example.toml to config.toml)", file=sys.stderr)
+        sys.exit(1)
+    try:
+        cfg = load_config(path)
+    except ConfigSyntaxError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+    except (ValueError, OSError) as e:
+        print(f"Error: in {path}: {e}", file=sys.stderr)
+        sys.exit(1)
     print(f"config: {os.path.abspath(path)}")
     if args.cmd == "import":
         conn = dbm.connect(cfg["db"])
