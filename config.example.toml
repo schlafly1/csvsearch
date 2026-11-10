@@ -10,3 +10,8 @@ csv_files = [
   "examples/inventory.xls",
   "examples/cities.ods",
 ]
+
+# Optional bind address for `python -m csvsearch serve`.
+# Overridden by --host on the command line.
+# [server]
+# host = "127.0.0.1"

@@ -179,9 +179,10 @@ Details:
 ```
 python -m csvsearch serve                # http://127.0.0.1:5000
 python -m csvsearch serve --port 8080
+python -m csvsearch serve --host 0.0.0.0
 ```
 
-Open the address in a browser. The server listens only on 127.0.0.1, so it can't be reached from other machines. Press Ctrl+C to stop it.
+Open the printed address in a browser. By default the server listens only on 127.0.0.1, so it can't be reached from other machines. Press Ctrl+C to stop it. To reach it from other computers on your LAN, see below.
 
 The search page has:
 
@@ -194,6 +195,36 @@ The search page has:
 - **Export database (.db):** downloads the SQLite file, which you can open with any SQLite tool (e.g. DB Browser for SQLite or `sqlite3`).
 - **Export results (CSV):** downloads all lines matching the current search (not just the current page) as `file,line,column,value` rows.
 
+
+## Access from other computers on your LAN
+
+To let other devices on the same local network use the search page, bind to every interface:
+
+```
+python -m csvsearch serve --host 0.0.0.0
+python -m csvsearch serve --host 0.0.0.0 --port 5000
+```
+
+You can also put the bind address in the config file (the command-line `--host` wins if both are set):
+
+```toml
+[server]
+host = "0.0.0.0"
+```
+
+At startup the program prints the URL(s) to open, including this machine's LAN IPv4 address when you bind to `0.0.0.0` (for example `http://192.168.1.23:5000`). You can also pass a specific address, such as `--host 192.168.1.23`.
+
+**Security:** there is no login. Anyone who can reach the URL can search and download your data. Only do this on a network you trust, and stop the server when you are done. Flask's `--debug` flag is ignored unless the server is bound to localhost.
+
+**Windows Firewall:** Windows will usually prompt the first time, or block the port quietly. Allow csvsearch on *Private* networks only (not Public/Guest). In an **Administrator** PowerShell:
+
+```powershell
+New-NetFirewallRule -DisplayName csvsearch -Direction Inbound -Protocol TCP -LocalPort 5000 -Profile Private -Action Allow
+```
+
+Change `-LocalPort` if you used `--port`. To remove the rule later: `Remove-NetFirewallRule -DisplayName csvsearch`.
+
+**Copy button:** on `http://127.0.0.1` and `localhost` the page uses the clipboard API. On a LAN address (`http://192.168.x.x`) that API may be unavailable, so the Copy button falls back to a hidden text box and `document.execCommand('copy')`.
 ## Spreadsheets
 
 `.xlsx`/`.xlsm` (via openpyxl), `.xls` (via xlrd) and `.ods` (via pandas + odfpy) can be listed in `csv_files` alongside CSVs.

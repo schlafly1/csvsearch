@@ -222,3 +222,54 @@ def test_line_copy_empty_value(tmp_path):
     assert r.data.count(b'<button type="button" class="copy">Copy</button>') == 2
     assert b"class=\"val\"" in r.data
     assert b"navigator.clipboard" in r.data and b"execCommand" in r.data
+
+
+# ---- serve --host ----
+from csvsearch.__main__ import (
+    DEFAULT_HOST,
+    LAN_WARNING,
+    build_parser,
+    is_localhost,
+    resolve_debug,
+    resolve_host,
+    startup_lines,
+)
+
+
+def test_host_default_and_cli():
+    assert resolve_host(build_parser().parse_args(["serve"])) == DEFAULT_HOST == "127.0.0.1"
+    assert resolve_host(build_parser().parse_args(["serve", "--host", "0.0.0.0"])) == "0.0.0.0"
+    assert resolve_host(build_parser().parse_args(["serve", "--host=192.168.1.5", "--port", "8080"])) == "192.168.1.5"
+    # CLI wins over config
+    args = build_parser().parse_args(["serve", "--host", "0.0.0.0"])
+    assert resolve_host(args, {"host": "127.0.0.1"}) == "0.0.0.0"
+    assert resolve_host(build_parser().parse_args(["serve"]), {"host": "0.0.0.0"}) == "0.0.0.0"
+    assert resolve_host(build_parser().parse_args(["serve"]), {"host": None}) == "127.0.0.1"
+
+
+def test_config_server_host(tmp_path):
+    cfg = tmp_path / "c.toml"
+    cfg.write_text('db = "x.db"\ncsv_files = []\n[server]\nhost = "0.0.0.0"\n', encoding="utf-8")
+    assert load_config(str(cfg))["host"] == "0.0.0.0"
+    cfg.write_text('db = "x.db"\ncsv_files = []\n', encoding="utf-8")
+    assert load_config(str(cfg))["host"] is None
+
+
+def test_debug_only_on_localhost():
+    assert is_localhost("127.0.0.1") and is_localhost("localhost")
+    assert not is_localhost("0.0.0.0") and not is_localhost("192.168.1.5")
+    assert resolve_debug(True, "127.0.0.1") == (True, False)
+    assert resolve_debug(True, "0.0.0.0") == (False, True)
+    assert resolve_debug(False, "0.0.0.0") == (False, False)
+
+
+def test_startup_lines_warn_on_all_interfaces():
+    lines = startup_lines("127.0.0.1", 5000)
+    assert "http://127.0.0.1:5000" in "\n".join(lines)
+    assert LAN_WARNING not in lines
+    lines = startup_lines("0.0.0.0", 5000, lan_addrs=["192.168.1.23"])
+    text = "\n".join(lines)
+    assert "http://0.0.0.0:5000" in text
+    assert "http://127.0.0.1:5000" in text
+    assert "http://192.168.1.23:5000" in text
+    assert LAN_WARNING in text

@@ -125,7 +125,19 @@ def load_config(path):
 
     _check_unescaped_path_controls(path, text, [data["db"], *raw_files])
 
+    server = data.get("server", {})
+    if server is None:
+        server = {}
+    if not isinstance(server, dict):
+        raise ValueError("'server' must be a table, e.g. [server]")
+    host = None
+    if "host" in server:
+        if not isinstance(server["host"], str) or not server["host"].strip():
+            raise ValueError("'server.host' must be a non-empty string")
+        host = server["host"].strip()
+
     return {
         "db": resolve(data["db"]),
         "csv_files": [resolve(p) for p in raw_files],
+        "host": host,
     }
