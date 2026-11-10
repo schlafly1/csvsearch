@@ -2,7 +2,49 @@
 {% block body %}
 <p><a href="javascript:history.back()">&laquo; back</a></p>
 <h3>{{ file }} &mdash; line {{ line }}</h3>
-<table><tr><th>name</th><th>value</th></tr>
-{% for c, v in cells %}<tr><td>{{ c }}</td><td style="white-space:pre-wrap">{{ v }}</td></tr>{% endfor %}
+<table>
+<tr><th>name</th><th>value</th><th>copy</th></tr>
+{% for c, v in cells %}
+<tr>
+  <td>{{ c }}</td>
+  <td class="val" style="white-space:pre-wrap">{{ v }}</td>
+  <td><button type="button" class="copy">Copy</button></td>
+</tr>
+{% endfor %}
 </table>
+<script>
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function(resolve, reject) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      if (document.execCommand("copy")) resolve();
+      else reject(new Error("copy failed"));
+    } catch (e) { reject(e); }
+    finally { document.body.removeChild(ta); }
+  });
+}
+document.querySelectorAll("button.copy").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    var td = btn.closest("tr").querySelector(".val");
+    var text = td ? td.textContent : "";
+    copyText(text).then(function() {
+      btn.textContent = "Copied";
+      setTimeout(function() { btn.textContent = "Copy"; }, 1500);
+    }).catch(function() {
+      btn.textContent = "Failed";
+      setTimeout(function() { btn.textContent = "Copy"; }, 1500);
+    });
+  });
+});
+</script>
 {% endblock %}

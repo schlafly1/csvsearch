@@ -190,7 +190,7 @@ The search page has:
 - **Table drop-down:** *All tables* (default), or one CSV file or spreadsheet sheet.
 - **Case-sensitive checkbox:** off by default (`boston` matches `Boston`). Tick it for an exact-case match. It applies to the column box too.
 - **Results:** one row per matching line, showing the table, line number and the first few `name=value` pairs (long values are shortened). 50 lines per page, with prev/next links.
-- **Click a result row** to see the whole line as a two-column name/value table.
+- **Click a result row** to see the whole line as a name/value table, with a **Copy** button on each row to put the exact value (including empty ones) on the clipboard.
 - **Export database (.db):** downloads the SQLite file, which you can open with any SQLite tool (e.g. DB Browser for SQLite or `sqlite3`).
 - **Export results (CSV):** downloads all lines matching the current search (not just the current page) as `file,line,column,value` rows.
 

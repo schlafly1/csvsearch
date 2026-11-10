@@ -52,6 +52,13 @@ def test_web(setup):
     r = c.get("/line?file=a.csv&line=3")
     assert r.status_code == 200 and b"&lt;b&gt;" in r.data
     assert c.get("/line?file=a.csv&line=99").status_code == 404
+    r = c.get("/line?file=a.csv&line=3")
+    assert b"<th>copy</th>" in r.data
+    assert r.data.count(b'<button type="button" class="copy">Copy</button>') == 2
+    assert b"&lt;b&gt;Denver&lt;/b&gt;" in r.data and b"<b>Denver</b>" not in r.data
+    r = c.get("/line?file=a.csv&line=6")  # short row: name=Dan only
+    assert r.status_code == 200
+    assert r.data.count(b'<button type="button" class="copy">Copy</button>') == 1
     r = c.get("/export/results.csv?q=boston")
     assert r.mimetype == "text/csv" and b"Boston" in r.data
     r = c.get("/export/db")
@@ -201,3 +208,17 @@ def test_cli_syntax_and_schema_errors_no_traceback(tmp_path):
     assert res2.returncode == 1
     assert f"Error: in {bad_schema}:" in res2.stderr
     assert "Traceback" not in res2.stderr
+
+
+def test_line_copy_empty_value(tmp_path):
+    csv = tmp_path / "e.csv"
+    csv.write_text("user,password\nalice,\n", encoding="utf-8")
+    dbp = str(tmp_path / "t.db")
+    conn = dbm.connect(dbp)
+    dbm.import_file(conn, str(csv))
+    r = create_app(dbp).test_client().get("/line?file=e.csv&line=2")
+    assert r.status_code == 200
+    assert b"<th>copy</th>" in r.data
+    assert r.data.count(b'<button type="button" class="copy">Copy</button>') == 2
+    assert b"class=\"val\"" in r.data
+    assert b"navigator.clipboard" in r.data and b"execCommand" in r.data
